@@ -42,6 +42,7 @@ namespace WinkleBell
 
         public MainPage()
         {
+            //Test 
             this.InitializeComponent();
             Initialize();
         }

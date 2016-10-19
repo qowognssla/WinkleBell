@@ -317,5 +317,34 @@ namespace WinkleBell
                  }
             }
         }
+
+        private async void Refresh_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Devices =
+                await DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort));
+
+                ObservableCollection<TextBlock> BluetoothDeivces = new ObservableCollection<TextBlock>(); ;
+
+                for (int i = 0; i < Devices.Count; i++)
+                {
+                    TextBlock Temp = new TextBlock();
+                    Temp.Text = Devices[i].Name;
+                    Debug.WriteLine(Devices[i].Name);
+                    BluetoothDeivces.Add(Temp);
+                }
+
+                BluetoothCombo.ItemsSource = BluetoothDeivces;
+
+                if (BluetoothDeivces.Count > 0)
+                    BluetoothCombo.SelectedIndex = 0;
+
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+        }
     }
 }

@@ -82,7 +82,8 @@
 
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,15,0,0">
                             <TextBlock Text="Bluetooth Name : " Margin="0,0,5,0" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="BluetoothCombo"  Width="200" />
+                            <ComboBox x:Name="BluetoothCombo"  Width="130" />
+                            <Button x:Name="Refresh" FontFamily="Segoe MDL2 Assets" Content="&#xE8EE;" Click="Refresh_Click"/>
                         </StackPanel>
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Button x:Name="ConnectBtn" Content="Connect" VerticalAlignment="Top" Margin="0,0,20,0" Click="ConnectBtn_Clicked"/>

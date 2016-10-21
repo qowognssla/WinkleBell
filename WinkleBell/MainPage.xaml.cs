@@ -316,8 +316,8 @@ namespace WinkleBell
                 if ((RevInteger / 100) > 0)
                 {
                     Debug.WriteLine("DD");
-                    PlayingSound(RevInteger % 100);
-                }
+                   //  PlayingSound(RevInteger % 100);
+                 }
             }
         }
     }

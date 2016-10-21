@@ -42,8 +42,6 @@ namespace WinkleBell
 
         public MainPage()
         {
-            //Test 
-            //Test2
             this.InitializeComponent();
             Initialize();
         }
@@ -266,7 +264,11 @@ namespace WinkleBell
             try
             {
                 PlayingSound(SelectedIndex);
-                await Send(SelectedIndex.ToString());
+                if (isActive)
+                {
+                    await Send(SelectedIndex.ToString());
+
+                }
             }
             catch (Exception ex)
             {
@@ -309,13 +311,13 @@ namespace WinkleBell
                 string recvdtxt = dataReaderObject.ReadString(bytesRead);
                 int RevInteger = int.Parse(recvdtxt);
 
-                     Debug.WriteLine((RevInteger / 100));
-                     Debug.WriteLine(RevInteger % 100);
-                 if ((RevInteger / 100) > 0)
+                Debug.WriteLine((RevInteger / 100));
+                Debug.WriteLine(RevInteger % 100);
+                if ((RevInteger / 100) > 0)
                 {
                     Debug.WriteLine("DD");
-                   //  PlayingSound(RevInteger % 100);
-                 }
+                    PlayingSound(RevInteger % 100);
+                }
             }
         }
     }

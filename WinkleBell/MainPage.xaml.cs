@@ -207,7 +207,9 @@ namespace WinkleBell
                 await new MessageDialog(ex.Message).ShowAsync();
             }
         }
-
+        private async void Refresh_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+        }
         private async Task<uint> Send(string msg)
         {
             try
@@ -285,9 +287,17 @@ namespace WinkleBell
                 // keep reading the serial input
                 while (isActive)
                 {
-                    await ReadAsync(ReadCancellationTokenSource.Token);
-                    await Task.Delay(1);
+                    try
+                    {
+                        await dataReaderObject.LoadAsync(1);
+                        Debug.WriteLine(dataReaderObject.ReadByte());
 
+                        PlayingSound(0);
+                    }
+
+                    catch  { }
+
+                    //await ReadAsync(ReadCancellationTokenSource.Token);
                 }
             }
         }
@@ -311,13 +321,12 @@ namespace WinkleBell
                 string recvdtxt = dataReaderObject.ReadString(bytesRead);
                 int RevInteger = int.Parse(recvdtxt);
 
-                Debug.WriteLine((RevInteger / 100));
-                Debug.WriteLine(RevInteger % 100);
-                if ((RevInteger / 100) > 0)
-                {
-                    Debug.WriteLine("DD");
-                   //  PlayingSound(RevInteger % 100);
-                 }
+                //  Debug.WriteLine((RevInteger / 100));
+                //  Debug.WriteLine(RevInteger % 100);
+                //  if ((RevInteger / 100) > 0)
+                //  {
+                // PlayingSound(RevInteger % 100);
+                //   }
             }
         }
     }

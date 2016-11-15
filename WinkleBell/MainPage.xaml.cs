@@ -1,17 +1,23 @@
-﻿using System;
+﻿using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Navigation;
+
+using System;
+using System.IO;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+
+using Windows.ApplicationModel;
+using Windows.Foundation;
+
+using Windows.UI.Core;
+
+using Windows.Devices.Enumeration;
+using Windows.Devices.SerialCommunication;
 using System.Diagnostics;
-using System.Linq;
+using Windows.Storage.Streams;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.ApplicationModel;
-using Windows.Devices.Bluetooth.Rfcomm;
-using Windows.Devices.Enumeration;
-using Windows.Networking.Sockets;
-using Windows.Storage.Streams;
-using Windows.UI.Popups;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -22,22 +28,50 @@ namespace WinkleBell
     /// </summary>
     public sealed partial class MainPage : Page
     {
+        private const String ButtonNameDisconnectFromDevice = "Disconnect from device";
+        private const String ButtonNameDisableReconnectToDevice = "Do not automatically reconnect to device that was just closed";
+
+        private SuspendingEventHandler appSuspendEventHandler;
+        private EventHandler<Object> appResumeEventHandler;
+
+        private ObservableCollection<DeviceListEntry> listOfDevices;
+
+        private Dictionary<DeviceWatcher, String> mapDeviceWatchersToDeviceSelector;
+        private Boolean watchersSuspended;
+        private Boolean watchersStarted;
+
+        // Has all the devices enumerated by the device watcher?
+        private Boolean isAllDevicesEnumerated;
+
         //App Version Infomation
         private PackageVersion AppVersion = Package.Current.Id.Version;
         private ObservableCollection<Button> BellBtnDataList;
-        private ObservableCollection<TextBox> PinDataList;
         private ObservableCollection<TextBox> RDataList;
         private ObservableCollection<TextBox> GDataList;
         private ObservableCollection<TextBox> BDataList;
 
-        private StreamSocket Socket;
-        private RfcommDeviceService Service;
-        private DeviceInformationCollection Devices;
-        private DataWriter BluetoothDataWriter;
-        private DataReader dataReaderObject;
-        private CancellationTokenSource ReadCancellationTokenSource;
-
         private bool isActive = false;
+        public static MainPage Current;
+
+        private CancellationTokenSource ReadCancellationTokenSource;
+        private Object ReadCancelLock = new Object();
+
+        private Boolean IsReadTaskPending;
+        private uint ReadBytesCounter = 0;
+        DataReader DataReaderObject = null;
+
+        // Track Write Operation
+        private CancellationTokenSource WriteCancellationTokenSource;
+        private Object WriteCancelLock = new Object();
+
+        private Boolean IsWriteTaskPending;
+        private uint WriteBytesCounter = 0;
+        DataWriter DataWriteObject = null;
+
+        bool WriteBytesAvailable = false;
+
+        // Indicate if we navigate away from this page or not.
+        private Boolean IsNavigatedAway;
 
 
         public MainPage()
@@ -49,41 +83,7 @@ namespace WinkleBell
         private async void Initialize()
         {
             AppVersionText.Text = string.Format("{0}.{1}.{2}.{3}", AppVersion.Major, AppVersion.Minor, AppVersion.Build, AppVersion.Revision);
-            BellBtnDataList = new ObservableCollection<Button>();
-            BellBtnDataList.Add(BellBtn0);
-            BellBtnDataList.Add(BellBtn1);
-            BellBtnDataList.Add(BellBtn2);
-            BellBtnDataList.Add(BellBtn3);
-            BellBtnDataList.Add(BellBtn4);
-            BellBtnDataList.Add(BellBtn5);
-            BellBtnDataList.Add(BellBtn6);
-            BellBtnDataList.Add(BellBtn7);
-            BellBtnDataList.Add(BellBtn8);
-            BellBtnDataList.Add(BellBtn9);
-            BellBtnDataList.Add(BellBtn10);
-            BellBtnDataList.Add(BellBtn11);
-            BellBtnDataList.Add(BellBtn12);
-            BellBtnDataList.Add(BellBtn13);
-            BellBtnDataList.Add(BellBtn14);
-            BellBtnDataList.Add(BellBtn15);
-
-            PinDataList = new ObservableCollection<TextBox>();
-            PinDataList.Add(PinText0);
-            PinDataList.Add(PinText1);
-            PinDataList.Add(PinText2);
-            PinDataList.Add(PinText3);
-            PinDataList.Add(PinText4);
-            PinDataList.Add(PinText5);
-            PinDataList.Add(PinText6);
-            PinDataList.Add(PinText7);
-            PinDataList.Add(PinText9);
-            PinDataList.Add(PinText10);
-            PinDataList.Add(PinText11);
-            PinDataList.Add(PinText12);
-            PinDataList.Add(PinText13);
-            PinDataList.Add(PinText14);
-            PinDataList.Add(PinText15);
-
+            Current = this;
             RDataList = new ObservableCollection<TextBox>();
             RDataList.Add(RText0);
             RDataList.Add(RText1);
@@ -138,102 +138,51 @@ namespace WinkleBell
             BDataList.Add(BText14);
             BDataList.Add(BText15);
 
-            try
-            {
-                Devices =
-                await DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort));
+            listOfDevices = new ObservableCollection<DeviceListEntry>();
+            mapDeviceWatchersToDeviceSelector = new Dictionary<DeviceWatcher, String>();
+            watchersStarted = false;
+            watchersSuspended = false;
 
-                ObservableCollection<TextBlock> BluetoothDeivces = new ObservableCollection<TextBlock>(); ;
-
-                for (int i = 0; i < Devices.Count; i++)
-                {
-                    TextBlock Temp = new TextBlock();
-                    Temp.Text = Devices[i].Name;
-                    Debug.WriteLine(Devices[i].Name);
-                    BluetoothDeivces.Add(Temp);
-                }
-
-                BluetoothCombo.ItemsSource = BluetoothDeivces;
-
-                if (BluetoothDeivces.Count > 0)
-                    BluetoothCombo.SelectedIndex = 0;
-
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex.Message);
-            }
+            isAllDevicesEnumerated = false;
         }
-
-        private async void ConnectBtn_Clicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        protected override void OnNavigatedTo(NavigationEventArgs eventArgs)
         {
-            try
+            if (EventHandlerForDevice.Current.IsDeviceConnected || (EventHandlerForDevice.Current.IsEnabledAutoReconnect
+                && EventHandlerForDevice.Current.DeviceInformation != null))
             {
-                var DeivceName = (TextBlock)BluetoothCombo.SelectedItem;
-                Debug.WriteLine(DeivceName.Text);
-                var Device = Devices.Single(x => x.Name == DeivceName.Text);
-                Debug.WriteLine(Device.Name);
-                Service = await RfcommDeviceService.FromIdAsync(Device.Id);
+                UpdateConnectDisconnectButtonsAndList(false);
 
-                Socket = new StreamSocket();
-
-                await Socket.ConnectAsync(Service.ConnectionHostName, Service.ConnectionServiceName, SocketProtectionLevel.BluetoothEncryptionAllowNullAuthentication);
-
-                BluetoothDataWriter = new DataWriter(Socket.OutputStream);
-
-                isActive = true;
-                Listen();
+                EventHandlerForDevice.Current.OnDeviceConnected = this.OnDeviceConnected;
+                EventHandlerForDevice.Current.OnDeviceClose = this.OnDeviceClosing;
             }
-            catch (Exception ex)
+            else
             {
-                await new MessageDialog(ex.Message).ShowAsync();
+                UpdateConnectDisconnectButtonsAndList(true);
             }
 
+            StartHandlingAppEvents();
+
+            InitializeDeviceWatchers();
+            StartDeviceWatchers();
+
+            DeviceListSource.Source = listOfDevices;
         }
 
-        private async void DisconnectBtn_Clicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        protected override void OnNavigatedFrom(NavigationEventArgs eventArgs)
         {
-            try
-            {
-                await Socket.CancelIOAsync();
-                Socket.Dispose();
-                Socket = null;
-                Service.Dispose();
-                Service = null;
-                isActive = false;
-            }
-            catch (Exception ex)
-            {
-                await new MessageDialog(ex.Message).ShowAsync();
-            }
+            StopDeviceWatchers();
+            StopHandlingAppEvents();
+
+            EventHandlerForDevice.Current.OnDeviceConnected = null;
+            EventHandlerForDevice.Current.OnDeviceClose = null;
         }
-        private async void Refresh_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+
+        private void Refresh_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
         }
-        private async Task<uint> Send(string msg)
-        {
-            try
-            {
-                BluetoothDataWriter.WriteString(msg);
-
-                // Launch an async task to 
-                //complete the write operation
-                var store = BluetoothDataWriter.StoreAsync().AsTask();
-
-                return await store;
-            }
-            catch (Exception ex)
-            {
-                await new MessageDialog(ex.Message).ShowAsync();
-
-                return 0;
-            }
-        }
-
 
         private async void PlayingSound(int Index, double Volume = 0.01)
         {
-
             MediaElement Sound = new MediaElement();
 
             string Mode = ((TextBlock)SoundModeCombo.SelectedItem).Text;
@@ -258,76 +207,381 @@ namespace WinkleBell
 
         }
 
-
-        private async void BellBtn0_PointerEntered(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        private async void ConnectBtn_Clicked(Object sender, RoutedEventArgs eventArgs)
         {
-            var SelectedBtn = sender as Button;
-            int SelectedIndex = BellBtnDataList.IndexOf(SelectedBtn);
-            try
-            {
-                PlayingSound(SelectedIndex);
-                if (isActive)
-                {
-                    await Send(SelectedIndex.ToString());
+            var selection = ConnectDevices.SelectedItems;
+            DeviceListEntry entry = null;
 
-                }
-            }
-            catch (Exception ex)
+            if (selection.Count > 0)
             {
-                Debug.WriteLine(ex.Message);
+                var obj = selection[0];
+                entry = (DeviceListEntry)obj;
+
+                if (entry != null)
+                {
+                    EventHandlerForDevice.CreateNewEventHandlerForDevice();
+
+                    EventHandlerForDevice.Current.OnDeviceConnected = this.OnDeviceConnected;
+                    EventHandlerForDevice.Current.OnDeviceClose = this.OnDeviceClosing;
+                    Boolean openSuccess = await EventHandlerForDevice.Current.OpenDeviceAsync(entry.DeviceInformation, entry.DeviceSelector);
+
+                    UpdateConnectDisconnectButtonsAndList(!openSuccess);
+                }
             }
         }
 
-        private async void Listen()
+        private void DisconnectBtn_Clicked(Object sender, RoutedEventArgs eventArgs)
         {
-            ReadCancellationTokenSource = new CancellationTokenSource();
-            if (Socket.InputStream != null)
+            var selection = ConnectDevices.SelectedItems;
+            DeviceListEntry entry = null;
+            
+            EventHandlerForDevice.Current.IsEnabledAutoReconnect = false;
+
+            if (selection.Count > 0)
             {
-                dataReaderObject = new DataReader(Socket.InputStream);
-                // keep reading the serial input
-                while (isActive)
+                var obj = selection[0];
+                entry = (DeviceListEntry)obj;
+
+                if (entry != null)
                 {
-                    try
-                    {
-                        await dataReaderObject.LoadAsync(1);
-                        Debug.WriteLine(dataReaderObject.ReadByte());
-
-                        PlayingSound(0);
-                    }
-
-                    catch  { }
-
-                    //await ReadAsync(ReadCancellationTokenSource.Token);
+                    EventHandlerForDevice.Current.CloseDevice();
                 }
             }
+
+            UpdateConnectDisconnectButtonsAndList(true);
+        }
+
+      
+        private void InitializeDeviceWatchers()
+        {
+            var deviceSelector = SerialDevice.GetDeviceSelector();
+            var deviceWatcher = DeviceInformation.CreateWatcher(deviceSelector);
+            AddDeviceWatcher(deviceWatcher, deviceSelector);
+        }
+
+        private void StartHandlingAppEvents()
+        {
+            appSuspendEventHandler = new SuspendingEventHandler(this.OnAppSuspension);
+            appResumeEventHandler = new EventHandler<Object>(this.OnAppResume);
+
+            App.Current.Suspending += appSuspendEventHandler;
+            App.Current.Resuming += appResumeEventHandler;
+        }
+
+        private void StopHandlingAppEvents()
+        {
+            App.Current.Suspending -= appSuspendEventHandler;
+            App.Current.Resuming -= appResumeEventHandler;
+        }
+
+        private void AddDeviceWatcher(DeviceWatcher deviceWatcher, String deviceSelector)
+        {
+            deviceWatcher.Added += new TypedEventHandler<DeviceWatcher, DeviceInformation>(this.OnDeviceAdded);
+            deviceWatcher.Removed += new TypedEventHandler<DeviceWatcher, DeviceInformationUpdate>(this.OnDeviceRemoved);
+            deviceWatcher.EnumerationCompleted += new TypedEventHandler<DeviceWatcher, Object>(this.OnDeviceEnumerationComplete);
+
+            mapDeviceWatchersToDeviceSelector.Add(deviceWatcher, deviceSelector);
+        }
+
+        private void StartDeviceWatchers()
+        {
+            watchersStarted = true;
+            isAllDevicesEnumerated = false;
+
+            foreach (DeviceWatcher deviceWatcher in mapDeviceWatchersToDeviceSelector.Keys)
+            {
+                if ((deviceWatcher.Status != DeviceWatcherStatus.Started)
+                    && (deviceWatcher.Status != DeviceWatcherStatus.EnumerationCompleted))
+                {
+                    deviceWatcher.Start();
+                }
+            }
+        }
+
+        private void StopDeviceWatchers()
+        {
+            foreach (DeviceWatcher deviceWatcher in mapDeviceWatchersToDeviceSelector.Keys)
+            {
+                if ((deviceWatcher.Status == DeviceWatcherStatus.Started)
+                    || (deviceWatcher.Status == DeviceWatcherStatus.EnumerationCompleted))
+                {
+                    deviceWatcher.Stop();
+                }
+            }
+            ClearDeviceEntries();
+
+            watchersStarted = false;
+        }
+
+        private void AddDeviceToList(DeviceInformation deviceInformation, String deviceSelector)
+        {
+            var match = FindDevice(deviceInformation.Id);
+            if (match == null)
+            {
+                match = new DeviceListEntry(deviceInformation, deviceSelector);   
+                listOfDevices.Add(match);
+            }
+        }
+
+        private void RemoveDeviceFromList(String deviceId)
+        {
+            var deviceEntry = FindDevice(deviceId);
+            listOfDevices.Remove(deviceEntry);
+        }
+
+        private void ClearDeviceEntries()
+        {
+            listOfDevices.Clear();
+        }
+
+        private DeviceListEntry FindDevice(String deviceId)
+        {
+            if (deviceId != null)
+            {
+                foreach (DeviceListEntry entry in listOfDevices)
+                {
+                    if (entry.DeviceInformation.Id == deviceId)
+                    {
+                        return entry;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private void OnAppSuspension(Object sender, SuspendingEventArgs args)
+        {
+            if (watchersStarted)
+            {
+                watchersSuspended = true;
+                StopDeviceWatchers();
+            }
+            else
+            {
+                watchersSuspended = false;
+            }
+        }
+
+        private void OnAppResume(Object sender, Object args)
+        {
+            if (watchersSuspended)
+            {
+                watchersSuspended = false;
+                StartDeviceWatchers();
+            }
+        }
+
+        private async void OnDeviceRemoved(DeviceWatcher sender, DeviceInformationUpdate deviceInformationUpdate)
+        {
+            await Dispatcher.RunAsync(
+                CoreDispatcherPriority.Normal,
+                new DispatchedHandler(() =>
+                {
+                   
+
+                    RemoveDeviceFromList(deviceInformationUpdate.Id);
+                }));
+        }
+
+        private async void OnDeviceAdded(DeviceWatcher sender, DeviceInformation deviceInformation)
+        {
+            await Dispatcher.RunAsync(
+                CoreDispatcherPriority.Normal,
+                new DispatchedHandler(() =>
+                {
+                    AddDeviceToList(deviceInformation, mapDeviceWatchersToDeviceSelector[sender]);
+                }));
+        }
+        private async void OnDeviceEnumerationComplete(DeviceWatcher sender, Object args)
+        {
+            await Dispatcher.RunAsync(
+                CoreDispatcherPriority.Normal,
+                new DispatchedHandler(() =>
+                {
+                    isAllDevicesEnumerated = true;
+
+                    if (EventHandlerForDevice.Current.IsDeviceConnected)
+                    {
+                        SelectDeviceInList(EventHandlerForDevice.Current.DeviceInformation.Id);
+
+                        ButtonDisconnectFromDevice.Content = ButtonNameDisconnectFromDevice;
+
+                        if (EventHandlerForDevice.Current.Device.PortName != "")
+                        {
+                          
+                        }
+                        else
+                        {
+                            //rootPage.NotifyUser("Connected to - " +
+                                           //     EventHandlerForDevice.Current.DeviceInformation.Id, NotifyType.StatusMessage);
+                        }
+                    }
+                    else if (EventHandlerForDevice.Current.IsEnabledAutoReconnect && EventHandlerForDevice.Current.DeviceInformation != null)
+                    {
+                        // We will be reconnecting to a device
+                        ButtonDisconnectFromDevice.Content = ButtonNameDisableReconnectToDevice;
+
+                     //   rootPage.NotifyUser("Waiting to reconnect to device -  " + EventHandlerForDevice.Current.DeviceInformation.Id, NotifyType.StatusMessage);
+                    }
+                    else
+                    {
+                        //rootPage.NotifyUser("No device is currently connected", NotifyType.StatusMessage);
+                    }
+                }));
+        }
+
+        private void OnDeviceConnected(EventHandlerForDevice sender, DeviceInformation deviceInformation)
+        {
+            // Find and select our connected device
+            if (isAllDevicesEnumerated)
+            {
+                SelectDeviceInList(EventHandlerForDevice.Current.DeviceInformation.Id);
+
+                ButtonDisconnectFromDevice.Content = ButtonNameDisconnectFromDevice;
+            }
+            Debug.WriteLine("Do Read");
+            EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(1 * 10000);
+            ReadButton_Click();
+            if (EventHandlerForDevice.Current.Device.PortName != "")
+            {
+               
+            }
+            else
+            {
+              
+            }
+        }
+        private async void OnDeviceClosing(EventHandlerForDevice sender, DeviceInformation deviceInformation)
+        {
+            await Dispatcher.RunAsync(
+                CoreDispatcherPriority.Normal,
+                new DispatchedHandler(() =>
+                {
+                    if (ButtonDisconnectFromDevice.IsEnabled && EventHandlerForDevice.Current.IsEnabledAutoReconnect)
+                    {
+                        ButtonDisconnectFromDevice.Content = ButtonNameDisableReconnectToDevice;
+                    }
+                }));
+        }
+        
+        private void SelectDeviceInList(String deviceIdToSelect)
+        {
+            ConnectDevices.SelectedIndex = -1;
+
+            for (int deviceListIndex = 0; deviceListIndex < listOfDevices.Count; deviceListIndex++)
+            {
+                if (listOfDevices[deviceListIndex].DeviceInformation.Id == deviceIdToSelect)
+                {
+                    ConnectDevices.SelectedIndex = deviceListIndex;
+
+                    break;
+                }
+            }
+        }
+        
+        private void UpdateConnectDisconnectButtonsAndList(Boolean enableConnectButton)
+        {
+            ButtonConnectToDevice.IsEnabled = enableConnectButton;
+            ButtonDisconnectFromDevice.IsEnabled = !ButtonConnectToDevice.IsEnabled;
+
+            ConnectDevices.IsEnabled = ButtonConnectToDevice.IsEnabled;
+        }
+
+        /////////////////////////////////////
+        // Read Write Page
+
+        public void Dispose()
+        {
+            if (ReadCancellationTokenSource != null)
+            {
+                ReadCancellationTokenSource.Dispose();
+                ReadCancellationTokenSource = null;
+            }
+
+            if (WriteCancellationTokenSource != null)
+            {
+                WriteCancellationTokenSource.Dispose();
+                WriteCancellationTokenSource = null;
+            }
+        }
+        async private void ReadButton_Click()
+        {
+            if (EventHandlerForDevice.Current.IsDeviceConnected)
+            {
+                try
+                {
+
+                    // We need to set this to true so that the buttons can be updated to disable the read button. We will not be able to
+                    // update the button states until after the read completes.
+                    IsReadTaskPending = true;
+                    DataReaderObject = new DataReader(EventHandlerForDevice.Current.Device.InputStream);
+
+                    await ReadAsync(ReadCancellationTokenSource.Token);
+                }
+                catch (OperationCanceledException /*exception*/)
+                {
+                   
+                }
+                catch (Exception exception)
+                {
+                    Debug.WriteLine(exception.Message.ToString());
+                }
+                finally
+                {
+                    IsReadTaskPending = false;
+                    DataReaderObject.DetachStream();
+                    DataReaderObject = null;
+
+                    //UpdateReadButtonStates();
+                }
+            }
+            
         }
         private async Task ReadAsync(CancellationToken cancellationToken)
         {
+
+            Task<UInt32> loadAsyncTask;
+
             uint ReadBufferLength = 1024;
 
-            // If task cancellation was requested, comply
-            cancellationToken.ThrowIfCancellationRequested();
+            // Don't start any IO if we canceled the task
+            lock (ReadCancelLock)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-            // Set InputStreamOptions to complete the asynchronous read operation when one or more bytes is available
-            dataReaderObject.InputStreamOptions = InputStreamOptions.Partial;
+                // Cancellation Token will be used so we can stop the task operation explicitly
+                // The completion function should still be called so that we can properly handle a canceled task
+                DataReaderObject.InputStreamOptions = InputStreamOptions.Partial;
+                loadAsyncTask = DataReaderObject.LoadAsync(ReadBufferLength).AsTask(cancellationToken);
+            }
 
-            // Create a task object to wait for data on the serialPort.InputStream
-            var loadAsyncTask = dataReaderObject.LoadAsync(ReadBufferLength).AsTask(cancellationToken);
-
-            // Launch the task and wait
             UInt32 bytesRead = await loadAsyncTask;
             if (bytesRead > 0)
             {
-                string recvdtxt = dataReaderObject.ReadString(bytesRead);
-                int RevInteger = int.Parse(recvdtxt);
+                 //ReadBytesTextBlock.Text += DataReaderObject.ReadString(bytesRead);
+                ReadBytesCounter += bytesRead;
+               // UpdateReadBytesCounterView();
 
-                //  Debug.WriteLine((RevInteger / 100));
-                //  Debug.WriteLine(RevInteger % 100);
-                //  if ((RevInteger / 100) > 0)
-                //  {
-                // PlayingSound(RevInteger % 100);
-                //   }
             }
         }
+
+        private void CancelReadTask()
+        {
+            lock (ReadCancelLock)
+            {
+                if (ReadCancellationTokenSource != null)
+                {
+                    if (!ReadCancellationTokenSource.IsCancellationRequested)
+                    {
+                        ReadCancellationTokenSource.Cancel();
+
+                        // Existing IO already has a local copy of the old cancellation token so this reset won't affect it
+                       // ResetReadCancellationTokenSource();
+                    }
+                }
+            }
+        }
+
     }
 }

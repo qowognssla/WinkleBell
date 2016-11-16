@@ -85,7 +85,7 @@ namespace WinkleBell
             AppVersionText.Text = string.Format("{0}.{1}.{2}.{3}", AppVersion.Major, AppVersion.Minor, AppVersion.Build, AppVersion.Revision);
             Current = this;
             RDataList = new ObservableCollection<TextBox>();
-            RDataList.Add(RText0);
+           // RDataList.Add(RText0);
             RDataList.Add(RText1);
             RDataList.Add(RText2);
             RDataList.Add(RText3);
@@ -179,6 +179,9 @@ namespace WinkleBell
 
         private void Refresh_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
+            Debug.WriteLine("Do Read");
+            EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10*10000);
+            ReadButton_Click();
         }
 
         private async void PlayingSound(int Index, double Volume = 0.01)
@@ -204,7 +207,8 @@ namespace WinkleBell
 
         private void SetButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
-
+            WriteButton_Click();
+            Debug.WriteLine("AA");
         }
 
         private async void ConnectBtn_Clicked(Object sender, RoutedEventArgs eventArgs)
@@ -440,12 +444,20 @@ namespace WinkleBell
 
                 ButtonDisconnectFromDevice.Content = ButtonNameDisconnectFromDevice;
             }
-            Debug.WriteLine("Do Read");
-            EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(1 * 10000);
-            ReadButton_Click();
+
+            
+
             if (EventHandlerForDevice.Current.Device.PortName != "")
             {
-               
+                Debug.WriteLine("gg");
+                EventHandlerForDevice.Current.Device.Parity = SerialParity.None;
+
+                EventHandlerForDevice.Current.Device.StopBits = SerialStopBitCount.One;
+                EventHandlerForDevice.Current.Device.Handshake = SerialHandshake.None;
+                EventHandlerForDevice.Current.Device.DataBits = 8;
+                EventHandlerForDevice.Current.Device.BaudRate = 115200;
+                ResetReadCancellationTokenSource();
+                ResetWriteCancellationTokenSource();
             }
             else
             {
@@ -517,11 +529,12 @@ namespace WinkleBell
                     IsReadTaskPending = true;
                     DataReaderObject = new DataReader(EventHandlerForDevice.Current.Device.InputStream);
 
+                    while(true)
                     await ReadAsync(ReadCancellationTokenSource.Token);
                 }
                 catch (OperationCanceledException /*exception*/)
                 {
-                   
+
                 }
                 catch (Exception exception)
                 {
@@ -559,8 +572,9 @@ namespace WinkleBell
             UInt32 bytesRead = await loadAsyncTask;
             if (bytesRead > 0)
             {
-                 //ReadBytesTextBlock.Text += DataReaderObject.ReadString(bytesRead);
-                ReadBytesCounter += bytesRead;
+                //ReadBytesTextBlock.Text += DataReaderObject.ReadString(bytesRead);
+                // ReadBytesCounter += bytesRead;
+                Debug.Write(DataReaderObject.ReadString(bytesRead));
                // UpdateReadBytesCounterView();
 
             }
@@ -577,11 +591,118 @@ namespace WinkleBell
                         ReadCancellationTokenSource.Cancel();
 
                         // Existing IO already has a local copy of the old cancellation token so this reset won't affect it
-                       // ResetReadCancellationTokenSource();
+                        ResetReadCancellationTokenSource();
                     }
                 }
             }
         }
 
+        private void ResetReadCancellationTokenSource()
+        {
+            // Create a new cancellation token source so that can cancel all the tokens again
+            ReadCancellationTokenSource = new CancellationTokenSource();
+
+            // Hook the cancellation callback (called whenever Task.cancel is called)
+            ReadCancellationTokenSource.Token.Register(() => NotifyReadCancelingTask());
+        }
+        private  void NotifyReadCancelingTask()
+        {
+   
+        }
+        private async void WriteButton_Click()
+        {
+            
+            EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10 * 10000);
+            if (EventHandlerForDevice.Current.IsDeviceConnected)
+            {
+                try
+                {
+                    IsWriteTaskPending = true;
+                    DataWriteObject = new DataWriter(EventHandlerForDevice.Current.Device.OutputStream);
+
+                    await WriteAsync(WriteCancellationTokenSource.Token);
+                }
+                catch (OperationCanceledException /*exception*/)
+                {
+                }
+                catch (Exception exception)
+                {
+                    Debug.WriteLine(exception.Message.ToString());
+                }
+                finally
+                {
+                    IsWriteTaskPending = false;
+                    DataWriteObject.DetachStream();
+                    DataWriteObject = null;
+
+                }
+            }
+            else
+            {
+            }
+        }
+        private async Task WriteAsync(CancellationToken cancellationToken)
+        {
+
+            Task<UInt32> storeAsyncTask;
+
+            if ((WriteBytesInputValue.Text.Length != 0))
+            {
+                char[] buffer = new char[WriteBytesInputValue.Text.Length];
+                WriteBytesInputValue.Text.CopyTo(0, buffer, 0, WriteBytesInputValue.Text.Length);
+                String InputString = new string(buffer);
+                DataWriteObject.WriteString(InputString);
+                WriteBytesInputValue.Text = "";
+
+                // Don't start any IO if we canceled the task
+                lock (WriteCancelLock)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    // Cancellation Token will be used so we can stop the task operation explicitly
+                    // The completion function should still be called so that we can properly handle a canceled task
+                    storeAsyncTask = DataWriteObject.StoreAsync().AsTask(cancellationToken);
+                }
+
+                UInt32 bytesWritten = await storeAsyncTask;
+                if (bytesWritten > 0)
+                {
+                    Debug.Write( InputString.Substring(0, (int)bytesWritten) + '\n');
+                    // WriteBytesCounter += bytesWritten;
+                    //  UpdateWriteBytesCounterView();
+                  //  Debug.Write(bytesWritten);
+                }
+            }
+            else
+            {
+            }
+        }
+        private void CancelWriteTask()
+        {
+            lock (WriteCancelLock)
+            {
+                if (WriteCancellationTokenSource != null)
+                {
+                    if (!WriteCancellationTokenSource.IsCancellationRequested)
+                    {
+                        WriteCancellationTokenSource.Cancel();
+
+                        // Existing IO already has a local copy of the old cancellation token so this reset won't affect it
+                        ResetWriteCancellationTokenSource();
+                    }
+                }
+            }
+        }
+        private void ResetWriteCancellationTokenSource()
+        {
+            // Create a new cancellation token source so that can cancel all the tokens again
+            WriteCancellationTokenSource = new CancellationTokenSource();
+
+            // Hook the cancellation callback (called whenever Task.cancel is called)
+            WriteCancellationTokenSource.Token.Register(() => NotifyWriteCancelingTask());
+        }
+        private void NotifyWriteCancelingTask()
+        {
+        }
     }
 }

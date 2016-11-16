@@ -104,7 +104,7 @@
                             <TextBlock Grid.Row="0" Grid.Column="4" Text="B" HorizontalAlignment="Center"/>
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="0" HorizontalAlignment="Center" Margin="0,5,0,5"/>
-                            <TextBox x:Name="RText0" Grid.Row="1" Grid.Column="2" Margin="3,0" InputScope="Number"/>
+                            <TextBox x:Name="WriteBytesInputValue" Grid.Row="1" Grid.Column="2" Margin="3,0" InputScope="Number"/>
                             <TextBox x:Name="GText0" Grid.Row="1" Grid.Column="3" Margin="3,0" InputScope="Number"/>
                             <TextBox x:Name="BText0" Grid.Row="1" Grid.Column="4" Margin="3,0" InputScope="Number"/>
 

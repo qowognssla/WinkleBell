@@ -180,8 +180,7 @@ namespace WinkleBell
         private void Refresh_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
             Debug.WriteLine("Do Read");
-            EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10*10000);
-            ReadButton_Click();
+            
         }
 
         private async void PlayingSound(int Index, double Volume = 0.01)
@@ -449,15 +448,16 @@ namespace WinkleBell
 
             if (EventHandlerForDevice.Current.Device.PortName != "")
             {
-                Debug.WriteLine("gg");
                 EventHandlerForDevice.Current.Device.Parity = SerialParity.None;
-
                 EventHandlerForDevice.Current.Device.StopBits = SerialStopBitCount.One;
                 EventHandlerForDevice.Current.Device.Handshake = SerialHandshake.None;
                 EventHandlerForDevice.Current.Device.DataBits = 8;
                 EventHandlerForDevice.Current.Device.BaudRate = 115200;
                 ResetReadCancellationTokenSource();
                 ResetWriteCancellationTokenSource();
+
+                EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10 * 10000);
+                ReadButton_Click();
             }
             else
             {
@@ -574,10 +574,47 @@ namespace WinkleBell
             {
                 //ReadBytesTextBlock.Text += DataReaderObject.ReadString(bytesRead);
                 // ReadBytesCounter += bytesRead;
-                Debug.Write(DataReaderObject.ReadString(bytesRead));
+                var str = DataReaderObject.ReadString(bytesRead);
+                Debug.WriteLine(str);
+                PlayingSound(CheckString(str));
                // UpdateReadBytesCounterView();
 
             }
+        }
+        private int CheckString(string str)
+        {
+            if (str.Contains("15"))
+                return 15;
+            else if (str.Contains("14"))
+                return 14;
+            else if (str.Contains("13"))
+                return 13;
+            else if (str.Contains("12"))
+                return 12;
+            else if (str.Contains("11"))
+                return 11;
+            else if (str.Contains("10"))
+                return 10;
+            else if (str.Contains("9"))
+                return 9;
+            else if (str.Contains("8"))
+                return 8;
+            else if (str.Contains("7"))
+                return 7;
+            else if (str.Contains("6"))
+                return 6;
+            else if (str.Contains("5"))
+                return 5;
+            else if (str.Contains("4"))
+                return 4;
+            else if (str.Contains("3"))
+                return 3;
+            else if (str.Contains("2"))
+                return 2;
+            else if (str.Contains("1"))
+                return 1;
+            else
+                return 0;
         }
 
         private void CancelReadTask()

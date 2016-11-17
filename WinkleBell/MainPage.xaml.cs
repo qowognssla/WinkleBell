@@ -40,12 +40,10 @@ namespace WinkleBell
         private Boolean watchersSuspended;
         private Boolean watchersStarted;
 
-        // Has all the devices enumerated by the device watcher?
         private Boolean isAllDevicesEnumerated;
 
         //App Version Infomation
         private PackageVersion AppVersion = Package.Current.Id.Version;
-        private ObservableCollection<Button> BellBtnDataList;
         private ObservableCollection<TextBox> RDataList;
         private ObservableCollection<TextBox> GDataList;
         private ObservableCollection<TextBox> BDataList;
@@ -54,25 +52,11 @@ namespace WinkleBell
         public static MainPage Current;
 
         private CancellationTokenSource ReadCancellationTokenSource;
-        private Object ReadCancelLock = new Object();
-
-        private Boolean IsReadTaskPending;
-        private uint ReadBytesCounter = 0;
-        DataReader DataReaderObject = null;
-
-        // Track Write Operation
         private CancellationTokenSource WriteCancellationTokenSource;
         private Object WriteCancelLock = new Object();
-
-        private Boolean IsWriteTaskPending;
-        private uint WriteBytesCounter = 0;
+        private Object ReadCancelLock = new Object();
         DataWriter DataWriteObject = null;
-
-        bool WriteBytesAvailable = false;
-
-        // Indicate if we navigate away from this page or not.
-        private Boolean IsNavigatedAway;
-
+        DataReader DataReaderObject = null;
 
         public MainPage()
         {
@@ -80,12 +64,12 @@ namespace WinkleBell
             Initialize();
         }
 
-        private async void Initialize()
+        private void Initialize()
         {
             AppVersionText.Text = string.Format("{0}.{1}.{2}.{3}", AppVersion.Major, AppVersion.Minor, AppVersion.Build, AppVersion.Revision);
             Current = this;
             RDataList = new ObservableCollection<TextBox>();
-           // RDataList.Add(RText0);
+            // RDataList.Add(RText0);
             RDataList.Add(RText1);
             RDataList.Add(RText2);
             RDataList.Add(RText3);
@@ -177,12 +161,6 @@ namespace WinkleBell
             EventHandlerForDevice.Current.OnDeviceClose = null;
         }
 
-        private void Refresh_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-        {
-            Debug.WriteLine("Do Read");
-            EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10*10000);
-            ReadButton_Click();
-        }
 
         private async void PlayingSound(int Index, double Volume = 0.01)
         {
@@ -208,7 +186,6 @@ namespace WinkleBell
         private void SetButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
             WriteButton_Click();
-            Debug.WriteLine("AA");
         }
 
         private async void ConnectBtn_Clicked(Object sender, RoutedEventArgs eventArgs)
@@ -224,11 +201,9 @@ namespace WinkleBell
                 if (entry != null)
                 {
                     EventHandlerForDevice.CreateNewEventHandlerForDevice();
-
                     EventHandlerForDevice.Current.OnDeviceConnected = this.OnDeviceConnected;
                     EventHandlerForDevice.Current.OnDeviceClose = this.OnDeviceClosing;
                     Boolean openSuccess = await EventHandlerForDevice.Current.OpenDeviceAsync(entry.DeviceInformation, entry.DeviceSelector);
-
                     UpdateConnectDisconnectButtonsAndList(!openSuccess);
                 }
             }
@@ -236,9 +211,10 @@ namespace WinkleBell
 
         private void DisconnectBtn_Clicked(Object sender, RoutedEventArgs eventArgs)
         {
+            isActive = false;
             var selection = ConnectDevices.SelectedItems;
             DeviceListEntry entry = null;
-            
+
             EventHandlerForDevice.Current.IsEnabledAutoReconnect = false;
 
             if (selection.Count > 0)
@@ -251,11 +227,10 @@ namespace WinkleBell
                     EventHandlerForDevice.Current.CloseDevice();
                 }
             }
-
             UpdateConnectDisconnectButtonsAndList(true);
         }
 
-      
+
         private void InitializeDeviceWatchers()
         {
             var deviceSelector = SerialDevice.GetDeviceSelector();
@@ -322,7 +297,7 @@ namespace WinkleBell
             var match = FindDevice(deviceInformation.Id);
             if (match == null)
             {
-                match = new DeviceListEntry(deviceInformation, deviceSelector);   
+                match = new DeviceListEntry(deviceInformation, deviceSelector);
                 listOfDevices.Add(match);
             }
         }
@@ -382,7 +357,7 @@ namespace WinkleBell
                 CoreDispatcherPriority.Normal,
                 new DispatchedHandler(() =>
                 {
-                   
+
 
                     RemoveDeviceFromList(deviceInformationUpdate.Id);
                 }));
@@ -409,28 +384,12 @@ namespace WinkleBell
                     {
                         SelectDeviceInList(EventHandlerForDevice.Current.DeviceInformation.Id);
 
-                        ButtonDisconnectFromDevice.Content = ButtonNameDisconnectFromDevice;
+                        ButtonDisconnectFromDevice.Content = "Disconnect";
 
-                        if (EventHandlerForDevice.Current.Device.PortName != "")
-                        {
-                          
-                        }
-                        else
-                        {
-                            //rootPage.NotifyUser("Connected to - " +
-                                           //     EventHandlerForDevice.Current.DeviceInformation.Id, NotifyType.StatusMessage);
-                        }
                     }
                     else if (EventHandlerForDevice.Current.IsEnabledAutoReconnect && EventHandlerForDevice.Current.DeviceInformation != null)
                     {
-                        // We will be reconnecting to a device
                         ButtonDisconnectFromDevice.Content = ButtonNameDisableReconnectToDevice;
-
-                     //   rootPage.NotifyUser("Waiting to reconnect to device -  " + EventHandlerForDevice.Current.DeviceInformation.Id, NotifyType.StatusMessage);
-                    }
-                    else
-                    {
-                        //rootPage.NotifyUser("No device is currently connected", NotifyType.StatusMessage);
                     }
                 }));
         }
@@ -441,27 +400,22 @@ namespace WinkleBell
             if (isAllDevicesEnumerated)
             {
                 SelectDeviceInList(EventHandlerForDevice.Current.DeviceInformation.Id);
-
-                ButtonDisconnectFromDevice.Content = ButtonNameDisconnectFromDevice;
+                ButtonDisconnectFromDevice.Content = "Disconnect";
             }
-
-            
 
             if (EventHandlerForDevice.Current.Device.PortName != "")
             {
-                Debug.WriteLine("gg");
                 EventHandlerForDevice.Current.Device.Parity = SerialParity.None;
-
                 EventHandlerForDevice.Current.Device.StopBits = SerialStopBitCount.One;
                 EventHandlerForDevice.Current.Device.Handshake = SerialHandshake.None;
                 EventHandlerForDevice.Current.Device.DataBits = 8;
                 EventHandlerForDevice.Current.Device.BaudRate = 115200;
                 ResetReadCancellationTokenSource();
                 ResetWriteCancellationTokenSource();
-            }
-            else
-            {
-              
+
+                isActive = true;
+                EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10 * 10000);
+                ReadButton_Click();
             }
         }
         private async void OnDeviceClosing(EventHandlerForDevice sender, DeviceInformation deviceInformation)
@@ -476,7 +430,7 @@ namespace WinkleBell
                     }
                 }));
         }
-        
+
         private void SelectDeviceInList(String deviceIdToSelect)
         {
             ConnectDevices.SelectedIndex = -1;
@@ -486,17 +440,16 @@ namespace WinkleBell
                 if (listOfDevices[deviceListIndex].DeviceInformation.Id == deviceIdToSelect)
                 {
                     ConnectDevices.SelectedIndex = deviceListIndex;
-
                     break;
                 }
             }
         }
-        
+
         private void UpdateConnectDisconnectButtonsAndList(Boolean enableConnectButton)
         {
             ButtonConnectToDevice.IsEnabled = enableConnectButton;
             ButtonDisconnectFromDevice.IsEnabled = !ButtonConnectToDevice.IsEnabled;
-
+            SetBtn.IsEnabled = !ButtonConnectToDevice.IsEnabled;
             ConnectDevices.IsEnabled = ButtonConnectToDevice.IsEnabled;
         }
 
@@ -523,18 +476,10 @@ namespace WinkleBell
             {
                 try
                 {
-
-                    // We need to set this to true so that the buttons can be updated to disable the read button. We will not be able to
-                    // update the button states until after the read completes.
-                    IsReadTaskPending = true;
                     DataReaderObject = new DataReader(EventHandlerForDevice.Current.Device.InputStream);
 
-                    while(true)
-                    await ReadAsync(ReadCancellationTokenSource.Token);
-                }
-                catch (OperationCanceledException /*exception*/)
-                {
-
+                    while (isActive)
+                        await ReadAsync(ReadCancellationTokenSource.Token);
                 }
                 catch (Exception exception)
                 {
@@ -542,14 +487,11 @@ namespace WinkleBell
                 }
                 finally
                 {
-                    IsReadTaskPending = false;
                     DataReaderObject.DetachStream();
                     DataReaderObject = null;
-
-                    //UpdateReadButtonStates();
                 }
             }
-            
+
         }
         private async Task ReadAsync(CancellationToken cancellationToken)
         {
@@ -558,13 +500,9 @@ namespace WinkleBell
 
             uint ReadBufferLength = 1024;
 
-            // Don't start any IO if we canceled the task
             lock (ReadCancelLock)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                // Cancellation Token will be used so we can stop the task operation explicitly
-                // The completion function should still be called so that we can properly handle a canceled task
                 DataReaderObject.InputStreamOptions = InputStreamOptions.Partial;
                 loadAsyncTask = DataReaderObject.LoadAsync(ReadBufferLength).AsTask(cancellationToken);
             }
@@ -572,12 +510,45 @@ namespace WinkleBell
             UInt32 bytesRead = await loadAsyncTask;
             if (bytesRead > 0)
             {
-                //ReadBytesTextBlock.Text += DataReaderObject.ReadString(bytesRead);
-                // ReadBytesCounter += bytesRead;
-                Debug.Write(DataReaderObject.ReadString(bytesRead));
-               // UpdateReadBytesCounterView();
-
+                var Str = DataReaderObject.ReadString(bytesRead);
+                Debug.Write(Str);
+                PlayingSound(CheckReadString(Str));
             }
+        }
+        private int CheckReadString(string str)
+        {
+            if (str.Contains("15"))
+                return 15;
+            else if (str.Contains("14"))
+                return 14;
+            else if (str.Contains("13"))
+                return 13;
+            else if (str.Contains("12"))
+                return 12;
+            else if (str.Contains("11"))
+                return 11;
+            else if (str.Contains("10"))
+                return 10;
+            else if (str.Contains("9"))
+                return 9;
+            else if (str.Contains("8"))
+                return 8;
+            else if (str.Contains("7"))
+                return 7;
+            else if (str.Contains("6"))
+                return 6;
+            else if (str.Contains("5"))
+                return 5;
+            else if (str.Contains("4"))
+                return 4;
+            else if (str.Contains("3"))
+                return 3;
+            else if (str.Contains("2"))
+                return 2;
+            else if (str.Contains("1"))
+                return 1;
+            else
+                return 0;
         }
 
         private void CancelReadTask()
@@ -605,25 +576,20 @@ namespace WinkleBell
             // Hook the cancellation callback (called whenever Task.cancel is called)
             ReadCancellationTokenSource.Token.Register(() => NotifyReadCancelingTask());
         }
-        private  void NotifyReadCancelingTask()
+        private void NotifyReadCancelingTask()
         {
-   
+
         }
         private async void WriteButton_Click()
         {
-            
+
             EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10 * 10000);
             if (EventHandlerForDevice.Current.IsDeviceConnected)
             {
                 try
                 {
-                    IsWriteTaskPending = true;
                     DataWriteObject = new DataWriter(EventHandlerForDevice.Current.Device.OutputStream);
-
                     await WriteAsync(WriteCancellationTokenSource.Token);
-                }
-                catch (OperationCanceledException /*exception*/)
-                {
                 }
                 catch (Exception exception)
                 {
@@ -631,14 +597,10 @@ namespace WinkleBell
                 }
                 finally
                 {
-                    IsWriteTaskPending = false;
                     DataWriteObject.DetachStream();
                     DataWriteObject = null;
 
                 }
-            }
-            else
-            {
             }
         }
         private async Task WriteAsync(CancellationToken cancellationToken)
@@ -654,27 +616,17 @@ namespace WinkleBell
                 DataWriteObject.WriteString(InputString);
                 WriteBytesInputValue.Text = "";
 
-                // Don't start any IO if we canceled the task
                 lock (WriteCancelLock)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-
-                    // Cancellation Token will be used so we can stop the task operation explicitly
-                    // The completion function should still be called so that we can properly handle a canceled task
                     storeAsyncTask = DataWriteObject.StoreAsync().AsTask(cancellationToken);
                 }
 
                 UInt32 bytesWritten = await storeAsyncTask;
                 if (bytesWritten > 0)
                 {
-                    Debug.Write( InputString.Substring(0, (int)bytesWritten) + '\n');
-                    // WriteBytesCounter += bytesWritten;
-                    //  UpdateWriteBytesCounterView();
-                  //  Debug.Write(bytesWritten);
+                    Debug.Write(InputString.Substring(0, (int)bytesWritten) + '\n');
                 }
-            }
-            else
-            {
             }
         }
         private void CancelWriteTask()
@@ -686,8 +638,6 @@ namespace WinkleBell
                     if (!WriteCancellationTokenSource.IsCancellationRequested)
                     {
                         WriteCancellationTokenSource.Cancel();
-
-                        // Existing IO already has a local copy of the old cancellation token so this reset won't affect it
                         ResetWriteCancellationTokenSource();
                     }
                 }
@@ -695,10 +645,7 @@ namespace WinkleBell
         }
         private void ResetWriteCancellationTokenSource()
         {
-            // Create a new cancellation token source so that can cancel all the tokens again
             WriteCancellationTokenSource = new CancellationTokenSource();
-
-            // Hook the cancellation callback (called whenever Task.cancel is called)
             WriteCancellationTokenSource.Token.Register(() => NotifyWriteCancelingTask());
         }
         private void NotifyWriteCancelingTask()

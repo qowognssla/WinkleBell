@@ -205,6 +205,10 @@ namespace WinkleBell
                     EventHandlerForDevice.Current.OnDeviceClose = this.OnDeviceClosing;
                     Boolean openSuccess = await EventHandlerForDevice.Current.OpenDeviceAsync(entry.DeviceInformation, entry.DeviceSelector);
                     UpdateConnectDisconnectButtonsAndList(!openSuccess);
+
+                    isActive = true;
+                    EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10 * 10000);
+                    ReadButton_Click();
                 }
             }
         }
@@ -415,7 +419,7 @@ namespace WinkleBell
             }
             else
             {
-              
+
             }
         }
         private async void OnDeviceClosing(EventHandlerForDevice sender, DeviceInformation deviceInformation)

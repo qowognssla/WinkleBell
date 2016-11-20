@@ -28,8 +28,6 @@ namespace WinkleBell
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private const String ButtonNameDisconnectFromDevice = "Disconnect from device";
-        private const String ButtonNameDisableReconnectToDevice = "Do not automatically reconnect to device that was just closed";
 
         private SuspendingEventHandler appSuspendEventHandler;
         private EventHandler<Object> appResumeEventHandler;
@@ -205,10 +203,6 @@ namespace WinkleBell
                     EventHandlerForDevice.Current.OnDeviceClose = this.OnDeviceClosing;
                     Boolean openSuccess = await EventHandlerForDevice.Current.OpenDeviceAsync(entry.DeviceInformation, entry.DeviceSelector);
                     UpdateConnectDisconnectButtonsAndList(!openSuccess);
-
-                    isActive = true;
-                    EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10 * 10000);
-                    ReadButton_Click();
                 }
             }
         }
@@ -393,7 +387,7 @@ namespace WinkleBell
                     }
                     else if (EventHandlerForDevice.Current.IsEnabledAutoReconnect && EventHandlerForDevice.Current.DeviceInformation != null)
                     {
-                        ButtonDisconnectFromDevice.Content = ButtonNameDisableReconnectToDevice;
+                        ButtonDisconnectFromDevice.Content = "Disconnect"; 
                     }
                 }));
         }
@@ -416,10 +410,10 @@ namespace WinkleBell
                 EventHandlerForDevice.Current.Device.BaudRate = 115200;
                 ResetReadCancellationTokenSource();
                 ResetWriteCancellationTokenSource();
-            }
-            else
-            {
 
+                isActive = true;
+                EventHandlerForDevice.Current.Device.ReadTimeout = new System.TimeSpan(10 * 10000);
+                ReadButton_Click();
             }
         }
         private async void OnDeviceClosing(EventHandlerForDevice sender, DeviceInformation deviceInformation)
@@ -430,7 +424,7 @@ namespace WinkleBell
                 {
                     if (ButtonDisconnectFromDevice.IsEnabled && EventHandlerForDevice.Current.IsEnabledAutoReconnect)
                     {
-                        ButtonDisconnectFromDevice.Content = ButtonNameDisableReconnectToDevice;
+                        ButtonDisconnectFromDevice.Content = "Disconnect"; 
                     }
                 }));
         }

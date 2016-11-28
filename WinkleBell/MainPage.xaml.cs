@@ -151,7 +151,7 @@ namespace WinkleBell
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs eventArgs)
-        {
+        1
             StopDeviceWatchers();
             StopHandlingAppEvents();
 

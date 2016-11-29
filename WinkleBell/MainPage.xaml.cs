@@ -151,7 +151,7 @@ namespace WinkleBell
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs eventArgs)
-        1
+        { 
             StopDeviceWatchers();
             StopHandlingAppEvents();
 
@@ -178,7 +178,6 @@ namespace WinkleBell
             {
                 Debug.WriteLine(ex.Message);
             }
-
         }
 
         private void SetButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
@@ -509,10 +508,19 @@ namespace WinkleBell
             if (bytesRead > 0)
             {
                 var Str = DataReaderObject.ReadString(bytesRead);
-                Debug.Write(Str);
-                PlayingSound(CheckReadString(Str));
+                if (Str.Contains("M"))
+                {
+                    //Sound Mode Change
+                    int Index = (SoundModeCombo.SelectedIndex+1)%(SoundModeCombo.Items.Count);
+                    SoundModeCombo.SelectedIndex = Index;
+                }
+                else
+                {
+                    PlayingSound(CheckReadString(Str));
+                }
             }
         }
+
         private int CheckReadString(string str)
         {
             if (str.Contains("15"))

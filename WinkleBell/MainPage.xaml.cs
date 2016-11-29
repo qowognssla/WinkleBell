@@ -18,6 +18,8 @@ using System.Diagnostics;
 using Windows.Storage.Streams;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Media.Playback;
+using Windows.Media.Core;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -160,19 +162,16 @@ namespace WinkleBell
         }
 
 
-        private async void PlayingSound(int Index, double Volume = 0.01)
+        private void PlayingSound(int Index, double Volume = 0.5)
         {
             MediaElement Sound = new MediaElement();
-
+            MediaPlayer player = new MediaPlayer();
             string Mode = ((TextBlock)SoundModeCombo.SelectedItem).Text;
             try
             {
-                Windows.Storage.StorageFolder folder = await Package.Current.InstalledLocation.GetFolderAsync("Assets\\" + Mode);
-                Windows.Storage.StorageFile file = await folder.GetFileAsync("sound" + Index + ".mp3");
-                var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.Read);
-                Sound.SetSource(stream, file.ContentType);
-                Sound.Volume = Volume;
-                Sound.Play();
+                player.Source = MediaSource.CreateFromUri(new Uri("ms-appx:///Assets/"+ Mode+ "/sound" + Index + ".mp3"));
+                player.Volume = Volume;
+                player.Play();
             }
             catch (Exception ex)
             {

@@ -34,7 +34,7 @@
 
                             <StackPanel Grid.Row="0" Orientation="Horizontal">
                                 <TextBlock Text="Sound Mode" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,30,0"/>
-                                <ComboBox Width="200" SelectedIndex="0" x:Name="SoundModeCombo">
+                                <ComboBox Width="200" SelectedIndex="0" x:Name="SoundModeCombo" SelectionChanged="SoundModeCombo_SelectionChanged">
                                     <TextBlock Text="BellType"/>
                                     <TextBlock Text="GuitarType"/>
                                     <TextBlock Text="SpaceType"/>

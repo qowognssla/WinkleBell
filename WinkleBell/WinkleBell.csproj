@@ -113,6 +113,7 @@
     <None Include="WinkleBell_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Assets\Arirang_full.mp3" />
     <Content Include="Assets\BellType\sound0.mp3" />
     <Content Include="Assets\BellType\sound1.mp3" />
     <Content Include="Assets\BellType\sound10.mp3" />
@@ -129,6 +130,9 @@
     <Content Include="Assets\BellType\sound7.mp3" />
     <Content Include="Assets\BellType\sound8.mp3" />
     <Content Include="Assets\BellType\sound9.mp3" />
+    <Content Include="Assets\Drum\beat0.mp3" />
+    <Content Include="Assets\Drum\beat1.mp3" />
+    <Content Include="Assets\Drum\beat2.mp3" />
     <Content Include="Assets\GuitarType\sound0.mp3" />
     <Content Include="Assets\GuitarType\sound1.mp3" />
     <Content Include="Assets\GuitarType\sound10.mp3" />

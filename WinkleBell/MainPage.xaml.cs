@@ -58,6 +58,8 @@ namespace WinkleBell
         DataWriter DataWriteObject = null;
         DataReader DataReaderObject = null;
 
+        private MediaPlayer Arirang  = new MediaPlayer();
+
         public MainPage()
         {
             this.InitializeComponent();
@@ -128,6 +130,68 @@ namespace WinkleBell
             watchersSuspended = false;
 
             isAllDevicesEnumerated = false;
+            Uri pathUri = new Uri("ms-appx:///Assets/Drum/" + ((TextBlock)mediaCombobox.SelectedItem).Text + ".mp3");
+            mediaPlayer.Source = MediaSource.CreateFromUri(pathUri);
+            Uri pathUri2 = new Uri("ms-appx:///Assets/Drum/" + ((TextBlock)mediaCombobox1.SelectedItem).Text + ".mp3");
+            mediaPlayer2.Source = MediaSource.CreateFromUri(pathUri2);
+            Uri pathUri3 = new Uri("ms-appx:///Assets/Drum/" + ((TextBlock)mediaCombobox2.SelectedItem).Text + ".mp3");
+            mediaPlayer3.Source = MediaSource.CreateFromUri(pathUri3);
+
+            mediaPlayer.MediaPlayer.Volume = 0;
+            mediaPlayer.MediaPlayer.IsLoopingEnabled = true;
+            mediaPlayer.MediaPlayer.VolumeChanged += MediaPlayer_VolumeChanged;
+
+            mediaPlayer2.MediaPlayer.Volume = 0;
+            mediaPlayer2.MediaPlayer.IsLoopingEnabled = true;
+            mediaPlayer2.MediaPlayer.VolumeChanged += MediaPlayer_VolumeChanged2;
+
+            mediaPlayer3.MediaPlayer.Volume = 0;
+            mediaPlayer3.MediaPlayer.IsLoopingEnabled = true;
+            mediaPlayer3.MediaPlayer.VolumeChanged += MediaPlayer_VolumeChanged3;
+
+            var Ariranguri = new Uri("ms-appx:///Assets/Arirang_full.mp3");
+            Arirang.Source = MediaSource.CreateFromUri(Ariranguri);
+            Arirang.Volume = 1;
+        }
+
+        private void MediaPlayer_VolumeChanged(MediaPlayer sender, object args)
+        {
+            if (sender.Volume == 0)
+            {
+                sender.Pause();
+                sender.PlaybackSession.Position = new TimeSpan(0);
+            }
+            else if (sender.PlaybackSession.PlaybackState != MediaPlaybackState.Playing)
+            {
+                sender.PlaybackSession.Position = new TimeSpan(0);
+                sender.Play();
+            }
+        }
+        private void MediaPlayer_VolumeChanged2(MediaPlayer sender, object args)
+        {
+            if (sender.Volume == 0)
+            {
+                sender.Pause();
+                sender.PlaybackSession.Position = new TimeSpan(0);
+            }
+            else if (sender.PlaybackSession.PlaybackState != MediaPlaybackState.Playing)
+            {
+                sender.PlaybackSession.Position = new TimeSpan(0);
+                sender.Play();
+            }
+        }
+        private void MediaPlayer_VolumeChanged3(MediaPlayer sender, object args)
+        {
+            if (sender.Volume == 0)
+            {
+                sender.Pause();
+                sender.PlaybackSession.Position = new TimeSpan(0);
+            }
+            else if (sender.PlaybackSession.PlaybackState != MediaPlaybackState.Playing)
+            {
+                sender.PlaybackSession.Position = new TimeSpan(0);
+                sender.Play();
+            }
         }
         protected override void OnNavigatedTo(NavigationEventArgs eventArgs)
         {
@@ -153,7 +217,7 @@ namespace WinkleBell
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs eventArgs)
-        { 
+        {
             StopDeviceWatchers();
             StopHandlingAppEvents();
 
@@ -164,12 +228,11 @@ namespace WinkleBell
 
         private void PlayingSound(int Index, double Volume = 0.5)
         {
-            MediaElement Sound = new MediaElement();
             MediaPlayer player = new MediaPlayer();
             string Mode = ((TextBlock)SoundModeCombo.SelectedItem).Text;
             try
             {
-                player.Source = MediaSource.CreateFromUri(new Uri("ms-appx:///Assets/"+ Mode+ "/sound" + Index + ".mp3"));
+                player.Source = MediaSource.CreateFromUri(new Uri("ms-appx:///Assets/" + Mode + "/sound" + Index + ".mp3"));
                 player.Volume = Volume;
                 player.Play();
             }
@@ -183,7 +246,45 @@ namespace WinkleBell
         {
             WriteButton_Click();
         }
+        private void mediaCombobox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ComboBox box = sender as ComboBox;
 
+            if (mediaPlayer != null && mediaPlayer2 != null && mediaPlayer3 != null)
+            {
+                if (box.Name == "mediaCombobox")
+                {
+                    Uri pathUri = new Uri("ms-appx:///Assets/Drum/" + ((TextBlock)mediaCombobox.SelectedItem).Text + ".mp3");
+                    mediaPlayer.Source = MediaSource.CreateFromUri(pathUri);
+                }
+                if (box.Name == "mediaCombobox2")
+                {
+                    Uri pathUri2 = new Uri("ms-appx:///Assets/Drum/" + ((TextBlock)mediaCombobox1.SelectedItem).Text + ".mp3");
+                    mediaPlayer2.Source = MediaSource.CreateFromUri(pathUri2);
+                }
+                if (box.Name == "mediaCombobox3")
+                {
+                    Uri pathUri3 = new Uri("ms-appx:///Assets/Drum/" + ((TextBlock)mediaCombobox2.SelectedItem).Text + ".mp3");
+                    mediaPlayer3.Source = MediaSource.CreateFromUri(pathUri3);
+                }
+            }
+        }
+
+        private void StartBtn_Click(object sender, RoutedEventArgs e)
+        {
+            Button Btn = sender as Button;
+
+            if ((string)Btn.Content == "Start")
+            {
+                Btn.Content = "Stop";
+                Arirang.Play();
+            }
+            else
+            {
+                Btn.Content = "Start";
+                Arirang.Pause();
+            }
+        }
         private async void ConnectBtn_Clicked(Object sender, RoutedEventArgs eventArgs)
         {
             var selection = ConnectDevices.SelectedItems;
@@ -385,7 +486,7 @@ namespace WinkleBell
                     }
                     else if (EventHandlerForDevice.Current.IsEnabledAutoReconnect && EventHandlerForDevice.Current.DeviceInformation != null)
                     {
-                        ButtonDisconnectFromDevice.Content = "Disconnect"; 
+                        ButtonDisconnectFromDevice.Content = "Disconnect";
                     }
                 }));
         }
@@ -422,7 +523,7 @@ namespace WinkleBell
                 {
                     if (ButtonDisconnectFromDevice.IsEnabled && EventHandlerForDevice.Current.IsEnabledAutoReconnect)
                     {
-                        ButtonDisconnectFromDevice.Content = "Disconnect"; 
+                        ButtonDisconnectFromDevice.Content = "Disconnect";
                     }
                 }));
         }
@@ -510,16 +611,27 @@ namespace WinkleBell
                 if (Str.Contains("M"))
                 {
                     //Sound Mode Change
-                    int Index = (SoundModeCombo.SelectedIndex+1)%(SoundModeCombo.Items.Count);
+                    int Index = (SoundModeCombo.SelectedIndex + 1) % (SoundModeCombo.Items.Count);
                     SoundModeCombo.SelectedIndex = Index;
                 }
                 else
                 {
-                    PlayingSound(CheckReadString(Str));
+                    try
+                    {
+                        PlayingSound(CheckReadString(Str), GetVolume(Str));
+                        Debug.WriteLine(Str);
+                    }
+                    catch { }
                 }
             }
         }
-
+        private double GetVolume(string str)
+        {
+            if (str.Contains(".1"))
+                return 1;
+            else
+                return 0.5;
+        }
         private int CheckReadString(string str)
         {
             if (str.Contains("15"))

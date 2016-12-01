@@ -16,26 +16,68 @@
         </Grid.RowDefinitions>
         <Pivot Grid.Row="1" Margin="0,10,0,0">
             <PivotItem Header="Play Mode">
-                <ListView>
-                    <TextBlock Text="Normal Play"  FontSize="22" FontWeight="Bold" Margin="0,15,0,0" Foreground="Gray"/>
+                <ScrollViewer>
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Normal Play"  FontSize="22" FontWeight="Bold" Margin="0,15,0,0" Foreground="Gray"/>
+                        <Grid Grid.Row="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
 
-                        <StackPanel Grid.Row="0" Orientation="Horizontal">
-                            <TextBlock Text="Sound Mode" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,30,0"/>
-                            <ComboBox Width="200" SelectedIndex="0" x:Name="SoundModeCombo">
-                                <TextBlock Text="BellType"/>
-                                <TextBlock Text="GuitarType"/>
-                                <TextBlock Text="SpaceType"/>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                                <TextBlock Text="Sound Mode" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,30,0"/>
+                                <ComboBox Width="200" SelectedIndex="0" x:Name="SoundModeCombo">
+                                    <TextBlock Text="BellType"/>
+                                    <TextBlock Text="GuitarType"/>
+                                    <TextBlock Text="SpaceType"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Grid.Row="2" Text="Beat Play"  FontSize="22" FontWeight="Bold" Margin="0,15,0,0" Foreground="Gray"/>
+                        <Grid Grid.Row="3"  Margin="10" BorderThickness="2" BorderBrush="Gray">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <ComboBox Grid.Row="0" x:Name="mediaCombobox" HorizontalAlignment="Stretch" Margin="10,5" SelectedIndex="0" SelectionChanged="mediaCombobox_SelectionChanged">
+                                <TextBlock Text="beat0"/>
+                                <TextBlock Text="beat1"/>
+                                <TextBlock Text="beat2"/>
                             </ComboBox>
-                        </StackPanel>
+                            <MediaPlayerElement Grid.Row="1" x:Name="mediaPlayer" AreTransportControlsEnabled="True"/>
+                            <ComboBox Grid.Row="2" x:Name="mediaCombobox1" HorizontalAlignment="Stretch" Margin="10,5" SelectedIndex="1" SelectionChanged="mediaCombobox_SelectionChanged">
+                                <TextBlock Text="beat0"/>
+                                <TextBlock Text="beat1"/>
+                                <TextBlock Text="beat2"/>
+                            </ComboBox>
+                            <MediaPlayerElement Grid.Row="3" x:Name="mediaPlayer2" AreTransportControlsEnabled="True"/>
+                            <ComboBox Grid.Row="4" x:Name="mediaCombobox2" HorizontalAlignment="Stretch" Margin="10,5" SelectedIndex="2" SelectionChanged="mediaCombobox_SelectionChanged">
+                                <TextBlock Text="beat0"/>
+                                <TextBlock Text="beat1"/>
+                                <TextBlock Text="beat2"/>
+                            </ComboBox>
+                            <MediaPlayerElement Grid.Row="5" x:Name="mediaPlayer3"   AreTransportControlsEnabled="True"/>
+                            
+                        </Grid>
+                        <Button Grid.Row="4" x:Name="StartBtn" Content="Start" HorizontalAlignment="Center" Width="100" Height="50" Click="StartBtn_Click"/>
+
                     </Grid>
-                </ListView>
+                </ScrollViewer>
             </PivotItem>
-            
+
             <PivotItem Header="Settings">
                 <ScrollViewer>
                     <Grid>

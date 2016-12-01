@@ -234,23 +234,15 @@ namespace WinkleBell
             EventHandlerForDevice.Current.OnDeviceClose = null;
         }
 
-        
+        private TimeSpan ZeroSpan = new TimeSpan(0);
         private void PlayingSound(int Index, double Volume = 0.5)
         {
-            MediaPlayer Beep = new MediaPlayer();
-            //Beep.AreTransportControlsEnabled = true;
-          //  string Mode = ((TextBlock)SoundModeCombo.SelectedItem).Text;
-         //   Beep.Source = MediaSource.CreateFromUri( new Uri("ms-appx:///Assets/" + Mode + "/sound" + Index + ".mp3"));
-         //
-         //   Beep.Volume = 0.1;
-         //   Beep.Play();
-
             try
             {
                 if (Bells[Index].PlaybackSession.PlaybackState != MediaPlaybackState.Playing)
                     Bells[Index].Play();
                 else
-                    Bells[Index].PlaybackSession.Position = new TimeSpan(0);
+                    Bells[Index].PlaybackSession.Position = ZeroSpan;
             }
             catch (Exception ex)
             {
@@ -260,9 +252,8 @@ namespace WinkleBell
 
         private void SetButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
-            PlayingSound(0, 1);
-          
-            //WriteButton_Click();
+            for (int i = 0; i < 15; i++)
+            PlayingSound(i, 1);
         }
 
         private void SoundModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
